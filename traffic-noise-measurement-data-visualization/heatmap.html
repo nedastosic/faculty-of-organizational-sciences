@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js"></script>
+
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <meta charset="utf-8">
+    <title>Crowdsensing</title>
+    <style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map {
+        height: 100%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #floating-panel {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 5;
+        background-color: #fff;
+        padding: 5px;
+        border: 1px solid #999;
+        text-align: center;
+        font-family: 'Roboto','sans-serif';
+        line-height: 30px;
+        padding-left: 10px;
+      }
+      #floating-panel {
+        background-color: #fff;
+        border: 1px solid #999;
+        left: 10px;
+        padding: 5px;
+        position: absolute;
+        top: 10px;
+        z-index: 5;
+      }
+	  
+    </style>
+  </head>
+
+  <body>
+    <div id="floating-panel">
+      <button onclick="toggleHeatmap()">Toggle Heatmap</button>
+      <button onclick="toggleMarkers()">Toggle Markers</button>
+	  <select onchange="changeSource()" id="sample">
+		<option value="all">--All--</option>
+		<option value="student1.json" selected>Student1</option>
+		<option value="student2.json">Student2</option>
+		<option value="student3.json">Student3</option>
+	  </select>
+    </div>
+    <div id="map"></div>
+    <script>
+
+      google.charts.load("current", {packages:["corechart"]});
+      //google.charts.setOnLoadCallback(drawChart);
+
+      var map, heatmap, markerCluster, markersVisible=true;
+	  var samples=["student1.json"];
+	  var markers=[];
+	  var markerFrequencyDetails=[];
+	  var markerDetails=[];
+
+	   function getPoints() {
+		var points=[];
+		for(var s in samples) {
+			$.ajax({
+			  url: samples[s],
+			  async: false,
+			  dataType: 'json',
+			  mimeType: "application/json",
+			  success: function (json) {
+				// do stuff with response.
+				for(var k in json) {
+				
+				var details={};
+				var label="";
+				switch(json[k]["mac"]){
+					case "A4:6C:F1:99:E5:CD":
+					 label="N";
+					 details["name"]="Student1";
+					 break;
+					 case "8C:83:E1:04:5F:D8":
+					 label="M";
+					 details["name"]="Student3";
+					 break;
+					 case "DC:CF:96:17:FC:80":
+					 label="B";
+					 details["name"]="Student2";
+					 break;
+				}
+				
+				details["timestamp"]=json[k]["vreme"];
+				markerDetails.push(details);
+				
+				 var marker = new google.maps.Marker({
+					position: new google.maps.LatLng(json[k]["lat"], json[k]["lon"]),
+					label: label,
+					title: json[k]["vreme"]
+					//map:map
+				});				
+				
+				tempDetails=[];
+
+				marker.setVisible(true);
+				markers.push(marker);
+				var avg=0;
+				var analysis=JSON.parse(json[k]["analiza"]);
+				var counter=0;
+				for(var a in analysis) {
+				
+				var value=analysis[a][counter];
+					avg+=analysis[a][counter];
+					counter+=5;
+					
+					tempDetails.push([counter, value]);
+				}
+				avg/=analysis.length;
+				points.push({location:new google.maps.LatLng(json[k]["lat"],json[k]["lon"]),weight:avg});
+				markerFrequencyDetails.push(tempDetails);
+				}
+			  }
+			});
+		}
+		
+		return points;
+      }
+	  
+
+	  
+      function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 13,
+          center: {lat: 44.80401, lng: 20.46513},
+          //mapTypeId: 'satellite',
+		  styles: [
+            {elementType: 'geometry', stylers: [{color: '#242f3e'}]},
+            {elementType: 'labels.text.stroke', stylers: [{color: '#242f3e'}]},
+            {elementType: 'labels.text.fill', stylers: [{color: '#746855'}]},
+            {
+              featureType: 'administrative.locality',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#d59563'}]
+            },
+            {
+              featureType: 'poi',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#d59563'}]
+            },
+            {
+              featureType: 'poi.park',
+              elementType: 'geometry',
+              stylers: [{color: '#263c3f'}]
+            },
+            {
+              featureType: 'poi.park',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#6b9a76'}]
+            },
+            {
+              featureType: 'road',
+              elementType: 'geometry',
+              stylers: [{color: '#38414e'}]
+            },
+            {
+              featureType: 'road',
+              elementType: 'geometry.stroke',
+              stylers: [{color: '#212a37'}]
+            },
+            {
+              featureType: 'road',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#9ca5b3'}]
+            },
+            {
+              featureType: 'road.highway',
+              elementType: 'geometry',
+              stylers: [{color: '#746855'}]
+            },
+            {
+              featureType: 'road.highway',
+              elementType: 'geometry.stroke',
+              stylers: [{color: '#1f2835'}]
+            },
+            {
+              featureType: 'road.highway',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#f3d19c'}]
+            },
+            {
+              featureType: 'transit',
+              elementType: 'geometry',
+              stylers: [{color: '#2f3948'}]
+            },
+            {
+              featureType: 'transit.station',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#d59563'}]
+            },
+            {
+              featureType: 'water',
+              elementType: 'geometry',
+              stylers: [{color: '#17263c'}]
+            },
+            {
+              featureType: 'water',
+              elementType: 'labels.text.fill',
+              stylers: [{color: '#515c6d'}]
+            },
+            {
+              featureType: 'water',
+              elementType: 'labels.text.stroke',
+              stylers: [{color: '#17263c'}]
+            }
+          ]
+
+        });
+		
+		markers=[];
+		markerFrequencyDetails=[];
+		markerDetails=[];
+		dataPoints=getPoints();
+		for (let i in markers) {
+			
+			markers[i].addListener('click', function() {
+				drawChart(this, i);
+			});
+		}
+		
+        heatmap = new google.maps.visualization.HeatmapLayer({
+          data: dataPoints,
+          map: map
+        });
+		
+		markerCluster = new MarkerClusterer(map, markers,
+								{imagePath: 'https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/m'});
+      }
+	  
+	  
+	  
+	 function drawChart(marker, i) {
+			var data = new google.visualization.DataTable();
+			data.addColumn('number', 'Frequency');
+			data.addColumn('number', 'Amplitude');
+			data.addRows(markerFrequencyDetails[i]);
+
+			// Set chart options
+			var options = {'title':markerDetails[i]["name"] +" - "+ markerDetails[i]["timestamp"],
+						   'width':600,
+						   'height':600};
+
+			var node        = document.createElement('div'),
+				infoWindow  = new google.maps.InfoWindow(),
+				chart       = new google.visualization.ColumnChart(node);
+				
+
+				chart.draw(data, options);
+				infoWindow.setContent(node);
+				infoWindow.open(marker.getMap(),marker);
+	}
+
+      function toggleHeatmap() {
+        heatmap.setMap(heatmap.getMap() ? null : map);
+      }
+	  
+	  
+      function toggleMarkers() {
+	  if (markersVisible){
+        for (let i in markers) {
+			markers[i].setMap(null);
+		}
+		markerCluster.clearMarkers();
+		}else{
+			for (let i in markers) {
+				markers[i].setMap(map);
+			}
+			markerCluster.addMarkers(markers);
+		}
+		
+		markersVisible=!markersVisible;
+      }
+
+     
+	  function changeSource(){
+		  var e = document.getElementById("sample");
+		  var selectedItem = e.options[e.selectedIndex].value;
+		  
+		  switch(selectedItem){
+			case "all":
+				samples=["student1.json", "student2.json", "student3.json"];
+				break;
+			default:
+				samples=[selectedItem];
+				break;
+		  }
+		  
+		 initMap();
+	  }
+     
+	  
+    </script>
+	<script src="https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/markerclusterer.js">
+    </script>
+    <script async defer
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAF6NrHvI3aRhQzvGQAh1w9ZytdaSJsrjs&libraries=visualization&callback=initMap">
+    </script>
+  </body>
+</html>
